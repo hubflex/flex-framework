@@ -1,0 +1,7 @@
+<?php
+
+/**
+ * @file 
+ * Install, uninstall and update hooks for the require_og_access module.
+ */
+

@@ -1,0 +1,13 @@
+name = Require OG access
+description = "Prevent access to OG private posts except to privileged users and OG group members."
+core = 6.x
+php = 5.1
+dependencies[] = og
+dependencies[] = node_access_fixer
+
+; Information added by Drupal.org packaging script on 2014-03-07
+version = "6.x-1.0-beta2"
+core = "6.x"
+project = "require_og_access"
+datestamp = "1394221358"
+

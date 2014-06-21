@@ -1,0 +1,100 @@
+<?php
+
+/**
+ * @file
+ * Primary file for the require_og_access module.
+ */
+
+/**
+ * Implements hook_perm().
+ */
+function require_og_access_perm() {
+  $items = array();
+  $items[] = _require_og_access_permission_exempt();
+  $items[] = _require_og_access_permission_exempt('read');
+  $items[] = _require_og_access_permission_exempt('update');
+  $items[] = _require_og_access_permission_exempt('delete');
+  $node_types = node_get_types('names');
+  foreach ($node_types as $machine_name => $name) {
+    $items[] = _require_og_access_permission_exempt('read', $machine_name);
+    $items[] = _require_og_access_permission_exempt('update', $machine_name);
+    $items[] = _require_og_access_permission_exempt('delete', $machine_name);
+  }
+  return $items;
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function require_og_access_menu_alter(&$items) {
+  $items['node/%node']['access callback'] = '_require_og_access_access';
+  $items['node/%node']['access arguments'] = array('read', 1);
+  $items['node/%node']['NODE_ACCESS_FIXER_MODE'] = NODE_ACCESS_FIXER_MODE_AND;
+
+  $items['node/%node/edit']['access callback'] = '_require_og_access_access';
+  $items['node/%node/edit']['access arguments'] = array('update', 1);
+  $items['node/%node/edit']['NODE_ACCESS_FIXER_MODE'] = NODE_ACCESS_FIXER_MODE_AND;
+
+  $items['node/%node/delete']['access callback'] = '_require_og_access_access';
+  $items['node/%node/delete']['access arguments'] = array('delete', 1);
+  $items['node/%node/delete']['NODE_ACCESS_FIXER_MODE'] = NODE_ACCESS_FIXER_MODE_AND;
+}
+
+/**
+ * Node access callback.
+ */
+function _require_og_access_access($op, $node) {
+  // Since this callback was added with NODE_ACCESS_FIXER_MODE_AND, we can safely
+  // return TRUE if we have no need to restrict, and node_access_fixer will
+  // still call node_access() before making the final decision.
+  if (
+    user_access(_require_og_access_permission_exempt())
+    || user_access(_require_og_access_permission_exempt($op))
+    || user_access(_require_og_access_permission_exempt($op, $node->type))
+  ) {
+    return TRUE;
+  }
+
+  if (isset($node->og_public) && $node->og_public === FALSE) {
+    // This is an OG private post. Force a check for group membership.
+    global $user;
+    $user = user_load($user->uid);
+    $matching_groups = array_intersect_key($node->og_groups, $user->og_groups);
+    // If there are no matching groups, deny access.
+    if (empty($matching_groups)) {
+      return FALSE;
+    }
+  }
+
+  // If we're still here, we have no need to deny acccess, so return TRUE.
+  return TRUE;
+}
+
+/**
+ * Build a permission name for exempting roles per operation and/or content
+ * type.
+ *
+ * @param $op Optional. Either 'delete', 'edit', 'delete', or NULL. If NULL,
+ *  this function returns 'Always exempt from Require OG access.'
+ * @param $type Optional. A content type machine name, or NULL. If NULL, the
+ *  returned permission name covers all content types.
+ * 
+ * @return A string suitable for use as a Drupal permission name.
+ */
+function _require_og_access_permission_exempt($op = NULL, $type = NULL) {
+  if ($op === NULL) {
+    return 'Always exempt from Require OG access';
+  }
+  else {
+    // Place quotes around actual content type machine names, but not around
+    // the 'any' content type string. This avoids ambiguity in case there's a
+    // content type actually named 'any'.
+    if ($type === NULL) {
+      return "Exempt from Require OG access on any content for '$op' op";
+    }
+    else {
+      return "Exempt from Require OG access on content of '$type' type for '$op' op";
+    }
+    
+  }
+}
